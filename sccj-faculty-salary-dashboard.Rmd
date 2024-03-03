@@ -1,0 +1,137 @@
+---
+title: "ASU SCCJ Faculty Salaries 2018-2022"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: yeti
+    source: embed
+    smart: false
+runtime: shiny
+---
+
+
+```{r setup, include = FALSE}
+
+# clear workspace
+rm( list = ls() )
+
+# load the needed libraries
+library( dplyr )
+library( tidyr )
+library( ggplot2 )
+library( openxlsx )
+library( ggrepel )
+library( here )
+
+# load the data file
+dat <- read.xlsx( 
+  here( "sccj-faculty-salary-data.xlsx" ) 
+  )
+
+```
+
+```{r data-prep}
+
+# ----
+# This section preps the data
+
+# drop 2023 because it is missing (i.e. has not been made available)
+dat <- dat[dat$year != 2023, ]
+
+# create year labels
+label.years <- min( unique( dat$year ) ): max( unique( dat$year ) )
+
+
+```
+
+
+Faculty Salary
+=====================================  
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+
+            # make checkbox for rank
+            checkboxGroupInput( inputId = "checkRank" ,
+                                label = h3( "Faculty Rank" ), 
+                                choices = list( "Assistant" = "Assistant", "Associate" = "Associate", "Full" = "Professor" ),
+                                selected = "Professor" 
+                                )
+
+            # make checkbox for gender
+            checkboxGroupInput( inputId = "checkSex" ,
+                                label = h3( "Faculty Sex" ), 
+                                choices = list( "Male" = "M", "Female" = "F" ),
+                                selected = "F" 
+                                )
+
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+```{r}
+
+
+
+renderPlot({
+  
+  ggplot(
+    dat[ ( dat$rank %in% input$checkRank ) & ( dat$sex %in% input$checkSex ),],
+    aes( x = year, y = rate, group = ID ) 
+    ) +
+    geom_line( color = "grey40" ) + 
+    geom_point( color = "grey40" ) +
+    facet_grid( rank ~ . , scales = "free_y", labeller = label_both, switch = "y" ) + 
+    scale_y_continuous( label = scales::dollar ) +
+    scale_x_continuous(
+      breaks = label.years,
+      label = as.character( label.years ) 
+      ) + 
+    geom_text_repel( aes( label = l.name ), 
+                     point.size = 0.2, segment.curvature = -0.1, segment.ncp = 3, segment.angle = 20 ) +
+    ggtitle( 
+      paste( "ASU CCJ Faculty Salaries for Professors (", 
+             as.character( head( label.years, 1 ) ), "to", as.character( tail( label.years, 1 ) ), ")", sep = " " ) ) +  
+    theme_minimal()
+  
+  })
+
+```
+
+About
+===================================== 
+
+Row 
+-------------------------------------
+
+### About this Dashboard
+
+The [State Press](https://www.statepress.com/article/2017/04/spinvestigative-salary-database) maintains a data base of salaries for all Arizona government employees. The data are available [here](https://www.statepress.com/article/2017/04/spinvestigative-salary-database). I have compiled the data for CCJ faculty and those data are used in the dashboard. For some cases there are no values reported. This is because the individual was not yet employed at ASU or they were not in the database (for reasons unknown to me).
+
+<br>
+
+***Please*** report any needed corrections to the [Issues](https://github.com/jacobtnyoung/sccj-faculty-salary/issues/new) page. Thanks!
+
+
+<style>
+
+.chart-shim { overflow: auto; }
+
+table{
+   border-spacing:1px;
+   margin-top:30px;
+   margin-bottom:30px;
+   margin-left: auto;
+   margin-right: auto;
+   align:center} 
+
+td{ padding: 6px 10px 6px 10px } 
+
+th{ text-align: left; } 
+
+</style>
