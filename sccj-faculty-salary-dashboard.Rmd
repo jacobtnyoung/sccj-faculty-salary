@@ -34,9 +34,6 @@ dat <- read.xlsx(
 # ----
 # This section preps the data
 
-# drop 2023 because it is missing (i.e. has not been made available)
-dat <- dat[dat$year != 2023, ]
-
 # create year labels
 label.years <- min( unique( dat$year ) ): max( unique( dat$year ) )
 
@@ -93,7 +90,7 @@ renderPlot({
       label = as.character( label.years ) 
       ) + 
     geom_text_repel( aes( label = l.name ), 
-                     point.size = 0.2, segment.curvature = -0.1, segment.ncp = 3, segment.angle = 20 ) +
+                     point.size = 0.2, segment.curvature = -0.1, segment.ncp = 3, segment.angle = 20, max.overlaps = Inf ) +
     ggtitle( 
       paste( "ASU CCJ Faculty Salaries for Professors (", 
              as.character( head( label.years, 1 ) ), "to", as.character( tail( label.years, 1 ) ), ")", sep = " " ) ) +  
@@ -112,6 +109,8 @@ Row
 ### About this Dashboard
 
 The [State Press](https://www.statepress.com/article/2017/04/spinvestigative-salary-database) maintains a data base of salaries for all Arizona government employees. The data are available [here](https://www.statepress.com/article/2017/04/spinvestigative-salary-database). I have compiled the data for CCJ faculty and those data are used in the dashboard. For some cases there are no values reported. This is because the individual was not yet employed at ASU or they were not in the database (for reasons unknown to me).
+
+Data from 2023 are pulled from [opengovpay](https://opengovpay.com/).
 
 <br>
 
