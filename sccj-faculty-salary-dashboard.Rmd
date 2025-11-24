@@ -1,5 +1,5 @@
 ---
-title: "ASU SCCJ Faculty Salaries 2018-2022"
+title: "ASU SCCJ Faculty Salaries 2018-2024"
 output: 
   flexdashboard::flex_dashboard:
     theme: yeti
@@ -109,8 +109,6 @@ Row
 ### About this Dashboard
 
 The [State Press](https://www.statepress.com/article/2017/04/spinvestigative-salary-database) maintains a data base of salaries for all Arizona government employees. The data are available [here](https://www.statepress.com/article/2017/04/spinvestigative-salary-database). I have compiled the data for CCJ faculty and those data are used in the dashboard. For some cases there are no values reported. This is because the individual was not yet employed at ASU or they were not in the database (for reasons unknown to me).
-
-Data from 2023 are pulled from [opengovpay](https://opengovpay.com/).
 
 <br>
 
