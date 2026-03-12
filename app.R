@@ -1,14 +1,12 @@
 # --------------------------------------------------------------- #
+# ----------------ASU CCJ FACULTY SALARY APP--------------------- #
 # --------------------------------------------------------------- #
-
 
 # ----
 # set up the libraries needed
 
 library( shinydashboard ) # for rendering the dashboard
 library( shiny )          # for running shiny
-library( sna )            # for working with the network
-library( network )        # for working with the network
 library( tidyverse )      # for handling data
 library( here )           # for local directory
 library( dplyr )
@@ -19,17 +17,36 @@ library( ggrepel )
 library( DT )
 library( plotly )
 
+
+
 # ----
 # load the data file
+
 dat <- read.xlsx( 
   here( "sccj-faculty-salary-data.xlsx" ) 
 )
 
 
-# ----
-# This section preps the data
 
+# ---- 
+# create the segments for the trajectory plot
+
+seg_dat <- dat %>%
+  arrange( ID, year ) %>%
+  group_by( ID ) %>%
+  mutate(
+    xend = lead( year ),
+    yend = lead( rate ),
+    seg_rank = rank
+  ) %>%
+  ungroup() %>%
+  filter( !is.na( xend ) )
+
+
+
+# ----
 # create year labels
+
 label_years <- min( unique( dat$year ) ): max( unique( dat$year ) )
 
 
@@ -40,7 +57,7 @@ label_years <- min( unique( dat$year ) ): max( unique( dat$year ) )
 # USER INTERFACE
 
 ui <- fluidPage(
-  titlePanel("ASU SCCJ Faculty Salaries (2018-2024)"),
+  titlePanel( "ASU SCCJ Faculty Salaries (2018-2024)" ),
   sidebarLayout(
     sidebarPanel(
       width = 3,
@@ -78,6 +95,13 @@ ui <- fluidPage(
         inputId = "exclude_admin",
         label = "Exclude director/assoc. dean appointments",
         value = FALSE
+      ),
+      
+      # exclude cases that are regents professors
+      checkboxInput(
+        inputId = "exclude_regents",
+        label = "Exclude regents professors",
+        value = FALSE
       )
       
     ),
@@ -85,10 +109,20 @@ ui <- fluidPage(
     mainPanel(
       width = 9,
       tabsetPanel(
+        
+        # tab with the salaries as disjoint trajectories
         tabPanel("Overview",
                  br(),
                  plotlyOutput("salary_plot", height = "600px"),
         ),
+        
+        # tab that gives the individual trajectories
+        tabPanel("Salary Trajectories",
+                 br(),
+                 plotlyOutput("trajectory_plot", height = "600px"),
+        ),
+        
+        # tab that explains the data source
         tabPanel("About",
                  br(),
                  p(
@@ -99,7 +133,7 @@ ui <- fluidPage(
                      target = "_blank"
                    ),
                    " maintains a database of salaries for all Arizona government employees. ",
-                   "The data are available ",
+                   "The data are available",
                    a(
                      "here",
                      href = "https://www.statepress.com/article/2017/04/spinvestigative-salary-database",
@@ -153,9 +187,30 @@ server <- function(input, output, session) {
         
         # filter for admin appointment
         (!isTRUE(input$exclude_admin) | admin_appointment == 0),
-        
+       
+        # filter for admin appointment
+        (!isTRUE(input$exclude_regents) | regents == 0 )
+
       )
   })
+  
+  # create a reactive for the segments
+    seg_df <- reactive({
+    df <- filtered_dat()
+    req( nrow( df ) > 0 )
+    
+    df %>%
+      arrange( ID, year ) %>%
+      group_by( ID ) %>%
+      mutate(
+        xend = lead( year ),
+        yend = lead( rate ),
+        seg_rank = rank
+      ) %>%
+      ungroup() %>%
+      filter( !is.na( xend ) )
+  })
+  
   
   # renderPlot using the reactive filtered_dat()
   output$salary_plot <- renderPlotly({
@@ -206,6 +261,64 @@ server <- function(input, output, session) {
         legend = list(orientation = "h", x = 0.1, y = -0.2)
       )
   })
+
+  # renderPlotly using the filtered data and segments to create the   
+  # trajectories of salaries
+  output$trajectory_plot <- renderPlotly({
+    
+    df <- filtered_dat()
+    req(nrow(df) > 0)
+    
+    # get seg_df from the reactive you created earlier
+    seg <- seg_df()
+    req(nrow(seg) > 0)  # in case filtering leaves no segments
+    
+    # compute label_years fallback if needed
+    ly <- if (exists("label_years") && length(label_years) > 0) {
+      label_years
+    } else {
+      sort(unique(df$year))
+    }
+    
+    # prepare tooltip text (this is what shows on hover)
+    df <- df %>%
+      mutate(
+        tooltip_text = paste0(
+          "Name: ", ifelse(is.na(l.name), "<unknown>", l.name),
+          "<br>Year: ", year,
+          "<br>Salary: $", scales::comma(rate)
+        )
+      )
+    
+    # plot: faint continuous line + colored segments + points with hover
+    p <- ggplot() +
+      # faint continuous trajectory for each person (keeps visual continuity)
+      geom_line(data = df,
+                aes(x = year, y = rate, group = ID),
+                color = "grey80", linewidth = 0.6) +
+      
+      # colored segments overlay (color by seg_rank)
+      geom_segment(data = seg,
+                   aes(x = year, xend = xend, y = rate, yend = yend,
+                       color = seg_rank, group = ID),
+                   linewidth = 0.5, lineend = "round") +
+      
+      # points at each year colored by rank; these carry the tooltip text
+      geom_point(data = df,
+                 aes(x = year, y = rate, color = rank, text = tooltip_text, group = ID),
+                 size = 1.5) +
+      
+      scale_color_brewer(palette = "Dark2", name = "Rank") +
+      scale_y_continuous(labels = scales::dollar) +
+      scale_x_continuous(breaks = ly, labels = as.character(ly)) +
+      ggtitle(paste0("ASU CCJ Faculty Salaries (", head(ly, 1), " to ", tail(ly, 1), ")")) +
+      theme_minimal() +
+      theme(legend.position = "bottom")
+    
+    ggplotly(p, tooltip = "text") %>%
+      layout(legend = list(orientation = "h", x = 0.1, y = -0.2))
+    
+  })  
   
 }
 # --------------------------------------------------------------- #
